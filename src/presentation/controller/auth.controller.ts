@@ -1,19 +1,20 @@
 import { HTTPException } from "hono/http-exception";
 import { AuthUsecase } from "../../usecase/auth.usecase";
 import { Context } from "hono";
+import { BaseController } from "./base.controller";
 
-export class AuthController {
-  constructor(private authUsecase: AuthUsecase) {}
+export class AuthController extends BaseController {
+  constructor(private authUsecase: AuthUsecase) {
+    super();
+  }
 
   async register(c: Context) {
     try {
       const body = await c.req.json();
       const user = await this.authUsecase.register(body);
-      return c.json(user);
+      return this.created(c, "user success registered", user);
     } catch (e) {
-      if (e instanceof HTTPException) {
-        return c.json({ error: e.message }, e.status);
-      }
+      return this.error(c, e as Error);
     }
   }
 
@@ -21,11 +22,9 @@ export class AuthController {
     try {
       const body = await c.req.json();
       const token = await this.authUsecase.login(body);
-      return c.json(token);
+      return this.ok(c, "login success", token);
     } catch (e) {
-      if (e instanceof HTTPException) {
-        return c.json({ error: e.message }, e.status);
-      }
+      return this.error(c, e as Error);
     }
   }
 }

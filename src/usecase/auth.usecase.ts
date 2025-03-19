@@ -1,4 +1,3 @@
-import { HTTPException } from "hono/http-exception";
 import {
   LoginRequest,
   RegisterRequest,
@@ -7,7 +6,12 @@ import { User } from "../domain/entities/user.entities";
 import { UserRepository } from "../domain/repositories/user.repository";
 import { compare, hash } from "bcrypt";
 import { generateToken } from "../internal/tokenutils";
-import { StatusCodes } from "http-status-codes";
+import {
+  ConflictError,
+  DomainError,
+  NotFoundError,
+} from "../internal/errors/errors";
+import { environment } from "../env.configs";
 
 export class AuthUsecase {
   constructor(private userRepository: UserRepository) {}
@@ -15,9 +19,7 @@ export class AuthUsecase {
   async register(input: RegisterRequest): Promise<User> {
     const existUser = await this.userRepository.findByEmail(input.email);
     if (existUser) {
-      throw new HTTPException(StatusCodes.CONFLICT, {
-        message: "Email already registered",
-      });
+      throw new ConflictError("Email already registered");
     }
 
     const existUsername = await this.userRepository.findByUsername(
@@ -25,9 +27,7 @@ export class AuthUsecase {
     );
 
     if (existUsername) {
-      throw new HTTPException(StatusCodes.CONFLICT, {
-        message: "Username already registered",
-      });
+      throw new ConflictError("Username already registered");
     }
 
     const passwordHash = await hash(input.password, 10);
@@ -48,19 +48,19 @@ export class AuthUsecase {
   async login(input: LoginRequest): Promise<any> {
     const existEmail = await this.userRepository.findByEmail(input.email);
     if (!existEmail) {
-      throw new HTTPException(StatusCodes.NOT_FOUND, {
-        message: "Email not found",
-      });
+      throw new NotFoundError("Email not found");
     }
 
     const passwordMatch = await compare(input.password, existEmail.password);
     if (!passwordMatch) {
-      throw new HTTPException(StatusCodes.UNAUTHORIZED, {
-        message: "Invalid password",
-      });
+      throw new DomainError("Password not match");
     }
 
-    const token = await generateToken(existEmail, "secret", 3600);
+    const token = await generateToken(
+      existEmail,
+      environment.jwt.secret,
+      parseInt(environment.jwt.expiry)
+    );
 
     return {
       token: token,

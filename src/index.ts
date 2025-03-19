@@ -4,20 +4,25 @@ import "./container";
 import { router } from "./presentation/routes";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
-import { errorHandler, errorResponse } from "./internal/response";
+import { ErrorHandler } from "./infrastructure/http/error/error.handler";
+import { NotFoundError } from "./internal/errors/errors";
+import { environment } from "./env.configs";
 
 const app = new Hono();
+const errorHandler = new ErrorHandler();
 
 app.use("*", logger());
 app.use("*", cors());
 app.use("*", secureHeaders());
 
-app.onError(errorHandler);
-
 app.notFound(async (c) => {
-  return errorResponse(c, "Not Found", 404);
+  const error = new NotFoundError("Route not found");
+  return errorHandler.handleError(error, c);
 });
 
 router(app.basePath("/api"));
 
-export default app;
+export default {
+  port: environment.port,
+  fetch: app.fetch,
+};
